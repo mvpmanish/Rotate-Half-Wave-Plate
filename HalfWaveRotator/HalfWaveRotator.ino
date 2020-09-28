@@ -262,6 +262,16 @@ void checkSerial()
         {
         	s = IDLE;
         }
+
+        else if(sc.contains("SC0"))  //Disable checksum
+        {
+        	sc.disableChecksum();
+        }
+
+        else if(sc.contains("SC1"))  //Enable checksum
+        {
+        	sc.enableChecksum();
+        }
     }
 }
 
