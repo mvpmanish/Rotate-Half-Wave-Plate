@@ -60,7 +60,7 @@ void setup()
 	initDisplay();
    	sc.init();  //Initialises the serial
    	sc.enableACKNAK();  //Have the Arduino send a "N" if does not send a message properly over serial
-	sc.enableChecksum();
+	//sc.enableChecksum();
 
    //Initialise the photo interrupts
    	zero_pin.readPin();
