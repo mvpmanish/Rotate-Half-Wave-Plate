@@ -284,6 +284,11 @@ void checkSerial()
         	sc.enableChecksum();
         	sc.sendACK();
         }
+
+        else
+        {
+        	sc.sendNAK();
+        }
     }
 }
 
