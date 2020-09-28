@@ -202,6 +202,7 @@ void checkSerial()
             		LCDPrintSetAngle(set_angle);
             		//Set state to moving
             		s = MOVING;
+            		sc.sendACK();
             		//When half-wave plate zeroed the zero does not align
             		//with the ten degree interrupter so after zeroing and setting
             		//an angle the ten degree interrupter fires at zero degrees.
@@ -235,6 +236,7 @@ void checkSerial()
         		LCDPrint(0, 1, "Zeroing...");
         		set_angle = 0;
         		s = ZEROING;
+        		sc.sendACK();
         	}
         }
         
@@ -244,6 +246,7 @@ void checkSerial()
         	lcd.clear();
         	LCDPrint(0, 0, "Calibrating...");
         	s = CALIBRATE;
+        	sc.sendACK();
         	rotation_timer.reset();
         }
         
@@ -256,21 +259,30 @@ void checkSerial()
         else if(sc.contains("ID"))	//ID of the device
         {
         	Serial.println("HP");  //Half-wave Plate
+
+        }
+
+        else if(sc.contains("$ID"))  //ID of the device. $ symbol is for compatibility with Ahmad's comms. protocol.
+        {
+            Serial.println("HP");  //Half-wave Plate
         }
         
         else if(sc.contains("ST"))	//Emergency stop
         {
         	s = IDLE;
+        	sc.sendACK();
         }
 
         else if(sc.contains("SC0"))  //Disable checksum
         {
         	sc.disableChecksum();
+        	sc.sendACK();
         }
 
         else if(sc.contains("SC1"))  //Enable checksum
         {
         	sc.enableChecksum();
+        	sc.sendACK();
         }
     }
 }
