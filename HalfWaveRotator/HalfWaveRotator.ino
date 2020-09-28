@@ -1,3 +1,7 @@
+/*
+Flash to an Arduino Mega
+*/
+
 #include "MilliTimer.h"
 #include "SerialChecker.h"
 #include "PhotoInterrupt.hpp"
@@ -6,16 +10,15 @@
 
 #include <string.h>
 #include <Wire.h>
-#include <ArduinoSTL.h>  //If needed download from https://github.com/mike-matera/ArduinoSTL
 
 //----------------- MOTOR SETTINGS------------------------------
 int set_angle{0};
 int current_angle;
 int count_angle{0};
 uint32_t five_deg_rotation_time{1846};  //initial estimate from Wiki (in milliseconds) 
-std::vector<uint32_t> times_between_10_deg;  //vector to store times between interrupts for calibration
+uint32_t times_between_10_deg [36] = {};  //array to store times between interrupts for calibration
+int array_count{0};  //accessor for array elements
 bool moving_state;  /*< True if moving and false if not moving*/
-
 
 //------------------DIGITAL PINS----------------------------
 int motor_switch_pin = 13;
@@ -41,7 +44,7 @@ State s{CALIBRATE};  //Set the first state to Initialise
 
 //--------------------------------TIMERS-------------------------------------
 MilliTimer timer(300);  //A timer which has a threshold time of 300 ms
-MilliTimer rotation_timer; //Test timer
+MilliTimer rotation_timer; //A timer used to get time taken to rotate 5 deg or 10 deg
 
 //-------------------------------MAIN PROGRAM-----------------------------------
 void setup()
@@ -79,14 +82,9 @@ void loop()
 		}
 		case MOVING:
 		{
-			digitalWrite(motor_switch_pin, HIGH);  //turns the motor on
 			moving_state = true;
+			digitalWrite(motor_switch_pin, HIGH);  //turns the motor on
 
-			//Can only have angles up to 360 degrees
-			if(current_angle >= 360)
-			{
-				current_angle -= 360;
-			}
 			//If photointerrupter has a falling edge +10 deg to current angle
 			if(ten_degree_pin.fallingEdge() && timer.timedOut())
 			{
@@ -94,11 +92,13 @@ void loop()
 				if((!(current_angle%5)) && (current_angle%10))
 				{
 					current_angle += 5;
+					rotation_timer.reset();
 				}
 				//If moving between interrupts add 10 deg
 				else
 				{
 					current_angle += 10;
+					rotation_timer.reset();
 				}
 				LCDPrintCurrentAng(current_angle);
 			}
@@ -106,9 +106,13 @@ void loop()
 			//time taken to move by 5 degrees
 			if(!(current_angle%10) && (set_angle - current_angle == 5))
 			{
-				delay(five_deg_rotation_time); 
-				current_angle += 5;
-				LCDPrintCurrentAng(current_angle);
+				if(rotation_timer.elapsed() >= five_deg_rotation_time)
+				{
+					//delay(five_deg_rotation_time); 
+					current_angle += 5;
+					LCDPrintCurrentAng(current_angle);
+				}
+				
 			}
 			
 			//If set angle = current angle then set status to Idle
@@ -145,28 +149,28 @@ void loop()
 			if(ten_degree_pin.fallingEdge())
 			{
 				uint32_t t = rotation_timer.elapsed();
-				//Serial.println(t);
-				times_between_10_deg.push_back(t);  //Store times in vector
+				times_between_10_deg[array_count] = t;  //Store times in array
 				if(t > 6000)  //If time between interrupts larger than 6 seconds then belt may need tensioning
 				{
 					LCDPrint(0,1, "Belt Slip Error!");
 				}
+				array_count++;
 				rotation_timer.reset(); 
 			}
 			//Go through a full rotation by 360 degrees i.e. 36 interrupts
-			if(times_between_10_deg.size() == 36)
+			if(array_count == 36)
 			{
 				digitalWrite(motor_switch_pin, LOW);  //Stop the motor
 				five_deg_rotation_time = 0;  //Clear the value
-				//Average the times stored ignoring the first value
-				for(int i{1}; i < times_between_10_deg.size(); i++)
+				//Average the times stored ignoring the first value as this could be between 10 degrees
+				for(int i{1}; i < array_count; i++)
 				{
 					five_deg_rotation_time += times_between_10_deg[i];
 				}
 				//Average time taken to rotate through five degrees is half average time taken
 				//to rotate through ten degrees
-				five_deg_rotation_time = five_deg_rotation_time/(2*(times_between_10_deg.size()-1)); //Have 35 values
-				times_between_10_deg.clear();  //Clear the vector
+				five_deg_rotation_time = five_deg_rotation_time/(2*(array_count-1)); //Average over 35 values and divide by 2
+				array_count = 0;  //Re-initialise the array count
 
 				moving_state = false;
 				lcd.clear();
@@ -204,6 +208,7 @@ void checkSerial()
             		//Start a timer and only increment 10 degrees if this timer has timed 
             		//out and interruptor has fired.
             		timer.reset();  
+            		rotation_timer.reset();
             	}
             }
         }
